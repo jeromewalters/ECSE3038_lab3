@@ -21,7 +21,7 @@ api.add_middleware(
     allow_headers=["*"],
 )
 
-conn = motor.motor_asyncio.AsyncIOMotorClient("mongodb+srv://jeromewalters:jeromewalters@cluster0.bbcfvve.mongodb.net/?retryWrites=true&w=majority",tls=True, tlsAllowInvalidCertificates=True)
+conn = motor.motor_asyncio.AsyncIOMotorClient("mongodb+srv://jeromewalters:devilswag@cluster0.bbcfvve.mongodb.net/?retryWrites=true&w=majority",tls=True, tlsAllowInvalidCertificates=True)
 
 database = conn.tank_system
 
@@ -74,8 +74,11 @@ async def update_tank(id: str, request: Request):
         raise HTTPException(status_code=404, detail="Item was not found")
 
 
-@api.delete("/data/{id}",status_code=204)
-async def delete_tank(id: str):
-
-    tank_deleter= await db["tank"].find_one({"_id": ObjectId(id)})
-    erase_tank= await db["tank"].delete_one({"_id":ObjectId(id)})
+@api.delete("/data/{id}")
+async def do_delete(id:str):
+    deleted_tank = await database["tank"].delete_one({"_id": ObjectId(id)})
+    
+    if deleted_tank.deleted_count == 1:
+        return {"message": "Tank deleted successfully"}
+    else:
+        raise HTTPException(status_code=404, detail="Item was not found")
