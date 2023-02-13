@@ -75,10 +75,10 @@ async def update_tank(id: str, request: Request):
 
 
 @api.delete("/data/{id}")
-async def do_delete(id:str):
+async def delete_tank(id:str):
     deleted_tank = await database["tank"].delete_one({"_id": ObjectId(id)})
     
     if deleted_tank.deleted_count == 1:
-        return {"message": "Tank deleted successfully"}
+        return {"message": "Tank deleted successfully", "deleted_count": deleted_tank.deleted_count}
     else:
         raise HTTPException(status_code=404, detail="Item was not found")
