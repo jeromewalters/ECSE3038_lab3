@@ -7,82 +7,74 @@ from datetime import datetime
 from pydantic import BaseModel
 
 
+api = FastAPI()
 
-app = FastAPI()
-
-origins = [
-    
+allowed_origins = [
     "https://ecse3038-lab3-tester.netlify.app", "http://localhost:8000"
 ]
 
-
-app.add_middleware(
+api.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],)
+    allow_headers=["*"],
+)
 
-client = motor.motor_asyncio.AsyncIOMotorClient("mongodb+srv://jeromewalters:jeromewalters@cluster0.bbcfvve.mongodb.net/?retryWrites=true&w=majority",tls=True, tlsAllowInvalidCertificates=True)
+conn = motor.motor_asyncio.AsyncIOMotorClient("mongodb+srv://jeromewalters:jeromewalters@cluster0.bbcfvve.mongodb.net/?retryWrites=true&w=majority",tls=True, tlsAllowInvalidCertificates=True)
 
-db = client.tank_system
+database = conn.tank_system
 
 pydantic.json.ENCODERS_BY_TYPE[ObjectId]=str
 
-@app.get("/profile")
-async def get_profile():
-    profile = await db["profile"].find().to_list(999)
-    if len(profile) < 1:
+@api.get("/profile")
+async def get_user_profile():
+    user_profile = await database["profile"].find().to_list(999)
+    if len(user_profile) < 1:
         return {}
-    return profile[0]
+    return user_profile[0]
 
 
+@api.post("/profile", status_code=201)
+async def create_profile(request: Request):
+    profile_data = await request.json()
+    profile_data["last_updated"] = datetime.now()
 
-@app.post("/profile",status_code=201)
-async def newprofile(request:Request):
-    
-    Objprofile = await request.json()
-    Objprofile["last_updated"]=datetime.now()
-
-    new_profile = await db["profile"].insert_one(Objprofile)
-    created_profile = await db["profile"].find_one({"_id": new_profile.inserted_id})
+    new_profile = await database["profile"].insert_one(profile_data)
+    created_profile = await database["profile"].find_one({"_id": new_profile.inserted_id})
 
     return created_profile
 
 
+@api.post("/data", status_code=201)
+async def create_tank(request: Request):
+    tank_data = await request.json()
+
+    new_tank = await database["tank"].insert_one(tank_data)
+    created_tank = await database["tank"].find_one({"_id": new_tank.inserted_id})
+    return created_tank
 
 
-@app.post("/data",status_code=201)
-async def newprofile(request:Request):
-    ObjTank = await request.json()
-
-    new_tank = await db["tank"].insert_one(ObjTank)
-    customtank = await db["tank"].find_one({"_id": new_tank.inserted_id})
-    return customtank
-
-    
-@app.get("/data")
-async def retrive_tanks():
-    tanks = await db["tank"].find().to_list(999)
+@api.get("/data")
+async def retrieve_tanks():
+    tanks = await database["tank"].find().to_list(999)
     return tanks
 
-    
 
-@app.patch("/data/{id}")
-async def do_update(id:str, request: Request):
-    updated= await request.json()
-    updated_tank = await db["tank"].update_one({"_id":ObjectId(id)}, {'$set': updated})
+@api.patch("/data/{id}")
+async def update_tank(id: str, request: Request):
+    update_data = await request.json()
+    updated_tank = await database["tank"].update_one({"_id": ObjectId(id)}, {'$set': update_data})
     
     if updated_tank.modified_count == 1:
-         if (
-                current_tank := await db["tank"].find_one({"_id": id})
-            ) is not None:
-                return current_tank   
+        current_tank = await database["tank"].find_one({"_id": id})
+        if current_tank is not None:
+            return current_tank   
     else:
-         raise HTTPException(status_code=404, detail="Item was not found")
+        raise HTTPException(status_code=404, detail="Item was not found")
 
 
-@app.delete("/data/{id}",status_code=204)
+@api.delete("/data/{id}",status_code=204)
 async def delete_tank(id: str):
 
     tank_deleter= await db["tank"].find_one({"_id": ObjectId(id)})
